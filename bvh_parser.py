@@ -15,7 +15,7 @@ class BvhParser:
         _traverse_joints(self.bvh.Root, self.joints)
         self.joint_map = {j.Name: h_j for j, (h_j, _, _) in zip(self.joints, self.hierarchy.layout())}
 
-    def get_motion_data(self):
+    def get_motion_data(self, include_velocities=True):
         all_frames_data = []
         num_frames = self.bvh.FrameCount
 
@@ -40,7 +40,10 @@ class BvhParser:
                     if channel == 'Xposition':
                         frame_data.append(0.0 if joint.Name == self.bvh.Root.Name else relative_pos[0])
                     elif channel == 'Yposition':
-                        frame_data.append(0.0 if joint.Name == self.bvh.Root.Name else relative_pos[1])
+                        if joint.Name == self.bvh.Root.Name:
+                            frame_data.append(pose.Position.y) # <-- THIS IS THE FIX
+                        else:
+                            frame_data.append(relative_pos[1])
                     elif channel == 'Zposition':
                         frame_data.append(0.0 if joint.Name == self.bvh.Root.Name else relative_pos[2])
                     elif channel == 'Xrotation': frame_data.append(euler.x)
@@ -48,6 +51,21 @@ class BvhParser:
                     elif channel == 'Zrotation': frame_data.append(euler.z)
 
             all_frames_data.append(np.array(frame_data, dtype=np.float32))
+        
+        # Add velocity information if requested
+        if include_velocities and num_frames > 1:
+            velocities = []
+            for i in range(num_frames):
+                if i == 0:
+                    # For first frame, use velocity from first to second frame
+                    vel = all_frames_data[1] - all_frames_data[0]
+                else:
+                    # For other frames, use velocity from previous to current frame
+                    vel = all_frames_data[i] - all_frames_data[i-1]
+                velocities.append(vel)
+            
+            # Concatenate position and velocity for better matching
+            all_frames_data = [np.concatenate([pos, vel]) for pos, vel in zip(all_frames_data, velocities)]
             
         return all_frames_data
 
