@@ -1,0 +1,80 @@
+REASONS FOR DIFFERENCES BETWEEN generated_motion.bvh AND original_motion_for_comparison.bvh
+=============================================================================================
+
+PRIMARY REASON:
+---------------
+The generated_motion.bvh file is NOT meant to replicate the original_motion_for_comparison.bvh. 
+It is a NEWLY SYNTHESIZED motion created by the Motion Graph algorithm, which stitches together 
+frames from multiple source BVH files (10 different clips: 01_01.bvh through 01_10.bvh) to create 
+a novel motion sequence.
+
+KEY TECHNICAL REASONS:
+----------------------
+
+1. MOTION GRAPH SYNTHESIS PROCESS:
+   - The algorithm builds a graph of similar poses across multiple source clips
+   - It randomly selects frames from different clips and connects them via transitions
+   - The generated motion is a path through this graph, not a copy of any single source
+   - Location: motion_graph/motion_graph.py -> generate_motion() method
+
+2. RANDOM TRANSITIONS BETWEEN CLIPS:
+   - With sequential_bias=0.95, 95% of frames continue sequentially within a clip
+   - 5% of frames make transitions to different clips at similar poses
+   - Each transition can jump between different source files (e.g., clip 01_01 -> clip 01_05)
+   - Location: main.py line 44, motion_graph.py lines 75-112
+
+3. NORMALIZED DATA PROCESSING:
+   - During graph building, positions are normalized relative to root (root-relative coordinates)
+   - Root X and Z positions are set to 0.0 during normalization
+   - Only root Y (height) is preserved from original
+   - Location: bvh_parser.py -> get_motion_data() method, lines 40-48
+
+4. WORLD-SPACE RECONSTRUCTION LIMITATIONS:
+   - Horizontal deltas (X, Z) are only applied for sequential frames within the same clip
+   - On transitions between clips, the character "teleports" (delta = [0,0,0])
+   - This causes discontinuities in world-space position during transitions
+   - Location: motion_graph/reconstruction.py lines 34-48
+
+5. DIFFERENT FRAME COUNT:
+   - Generated: 2500 frames (as specified in main.py)
+   - Original: 2752 frames
+   - The generated motion length is user-controlled, not based on original
+
+6. MULTI-CLIP SOURCE:
+   - Generated motion combines frames from 10 different source files
+   - Original motion is likely a single continuous clip
+   - The stitching creates a fundamentally different motion pattern
+
+POTENTIAL SOLUTIONS:
+-------------------
+
+1. IMPROVE TRANSITION SMOOTHNESS:
+   - Lower the threshold in build_graph() to find more similar poses (currently 6.0)
+   - Increase sequential_bias closer to 1.0 (e.g., 0.98) to reduce transitions
+   - Location: main.py line 31 (threshold), line 44 (sequential_bias)
+
+2. BETTER WORLD-SPACE RECONSTRUCTION:
+   - Calculate and apply proper world-space deltas even during transitions
+   - Blend positions at transition points instead of teleporting
+   - Location: motion_graph/reconstruction.py
+
+3. USE SINGLE SOURCE CLIP:
+   - If you want motion similar to original, use only one parser instead of 10
+   - This would generate motion from a single source, reducing differences
+   - Location: main.py lines 9-18
+
+4. POST-PROCESSING SMOOTHING:
+   - Apply smoothing filters to reduce discontinuities at transition points
+   - Interpolate between frames at transitions to create smoother motion
+
+5. ADJUST TRANSITION MATCHING:
+   - Use a more sophisticated matching algorithm that considers velocity continuity
+   - Weight transitions by smoothness score to prefer smoother connections
+
+NOTE:
+-----
+The Motion Graph algorithm is DESIGNED to create NEW motions by combining existing ones. 
+The differences are expected and intentional - it's a feature, not a bug. If you need 
+motion identical to the original, you should use the original file directly rather than 
+generating new motion.
+

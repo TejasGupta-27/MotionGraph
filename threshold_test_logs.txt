@@ -1,0 +1,44 @@
+================================================================================
+THRESHOLD TESTING RESULTS
+================================================================================
+
+Tested threshold values: [2, 2.5, 3]
+Total tests: 3
+Sequential bias: 0.98
+Number of frames: 2500
+
+================================================================================
+
+Threshold: 2
+  Status: SUCCESS
+  Build time: 55.13 seconds
+  Transitions in graph: 1650
+  Transitions in motion: 44
+  Smoothness score: 3445.9829
+  BVH file: generated_motion_threshold_2.bvh
+
+Threshold: 2.5
+  Status: SUCCESS
+  Build time: 62.05 seconds
+  Transitions in graph: 3318
+  Transitions in motion: 57
+  Smoothness score: 1472.8419
+  BVH file: generated_motion_threshold_2_5.bvh
+
+Threshold: 3
+  Status: SUCCESS
+  Build time: 67.80 seconds
+  Transitions in graph: 5766
+  Transitions in motion: 44
+  Smoothness score: 1374.7100
+  BVH file: generated_motion_threshold_3.bvh
+
+================================================================================
+BEST THRESHOLD (Lowest Smoothness Score)
+================================================================================
+Threshold: 3
+Smoothness score: 1374.7100
+Transitions in graph: 5766
+Transitions in motion: 44
+BVH file: generated_motion_threshold_3.bvh
+================================================================================

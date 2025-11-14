@@ -1,6 +1,7 @@
 import numpy as np
 
 def reconstruct_world_space_motion(motion_graph, motion_indices, normalized_motion_data):
+    """Reconstruct world-space motion with support for blended transitions."""
     # --- Correct World-Space Motion Reconstruction ---
     world_space_motion = []
     
@@ -12,8 +13,40 @@ def reconstruct_world_space_motion(motion_graph, motion_indices, normalized_moti
     root_joint = motion_graph.parsers[start_clip_idx].bvh.Root
     current_root_pos = np.array([0.0, root_joint.Keyframes[start_frame_idx].Position.y, 0.0])
 
+    # Check if we're using blended transitions
+    use_transitions = hasattr(motion_graph, '_use_blended_transitions') and motion_graph._use_blended_transitions
+    transition_clips = getattr(motion_graph, '_transition_clips', [])
+    
+    # Build transition frame map for quick lookup
+    transition_map = {}
+    for start_idx, transition_frames in transition_clips:
+        for offset, frame_data in enumerate(transition_frames):
+            transition_map[start_idx + 1 + offset] = frame_data
+    
     # Reconstruct motion frame by frame
+    frame_data_idx = 0
     for i in range(len(motion_indices)):
+        # Check if this is a transition frame
+        if motion_indices[i] is None or i in transition_map:
+            # This is a blended transition frame
+            if i in transition_map:
+                frame_data = transition_map[i].copy()
+                # Use the transition frame data directly
+                # Update root position based on previous position
+                if i > 0 and len(world_space_motion) > 0:
+                    # Calculate small delta from transition
+                    prev_root = world_space_motion[-1][0:3]
+                    current_root = frame_data[0:3]
+                    # For transitions, use the blended root position but maintain continuity
+                    current_root_pos = prev_root + (current_root - prev_root) * 0.1  # Smooth transition
+                else:
+                    current_root_pos = frame_data[0:3]
+                
+                frame_data[0:3] = current_root_pos
+                world_space_motion.append(frame_data)
+                frame_data_idx += 1
+            continue
+        
         clip_idx, frame_idx = motion_indices[i]
         
         parser = motion_graph.parsers[clip_idx]
@@ -22,41 +55,58 @@ def reconstruct_world_space_motion(motion_graph, motion_indices, normalized_moti
         if i > 0:
             # Calculate HORIZONTAL delta from the source clip
             
-            # We need the previous generated frame's indices to check for sequential move
-            prev_clip_idx, prev_frame_idx = motion_indices[i-1]
+            # Find previous non-transition frame
+            prev_i = i - 1
+            while prev_i >= 0 and (motion_indices[prev_i] is None or prev_i in transition_map):
+                prev_i -= 1
             
-            delta = np.array([0.0, 0.0, 0.0])
-            
-            # Only apply delta if we are in a sequential move
-            # (clip_idx == prev_clip_idx) and (frame_idx == prev_frame_idx + 1)
-            # The reconstruction logic for frame_idx > 0 was correct, but we
-            # can be more explicit.
-            if clip_idx == prev_clip_idx and frame_idx == prev_frame_idx + 1:
-                # This is a sequential frame. Calculate delta from source.
-                current_pose_pos = parser.hierarchy.loadPose(frame_idx).PositionWorld
-                previous_pose_pos = parser.hierarchy.loadPose(frame_idx - 1).PositionWorld
+            if prev_i >= 0:
+                prev_clip_idx, prev_frame_idx = motion_indices[prev_i]
                 
-                delta = np.array([
-                    current_pose_pos.x - previous_pose_pos.x,
-                   0, # Do not integrate Y
-                    current_pose_pos.z - previous_pose_pos.z
-                ])
-            # else:
-                # This is a transition jump. The delta is 0.
-                # The character "teleports" to the new pose's root position,
-                # but we continue from our current_root_pos.
-                # The 'delta = [0,0,0]' default handles this.
-            
-            current_root_pos += delta
+                delta = np.array([0.0, 0.0, 0.0])
+                
+                # IMPROVED: Calculate delta for both sequential frames and transitions
+                # This eliminates "teleporting" and creates smoother motion
+                if clip_idx == prev_clip_idx and frame_idx == prev_frame_idx + 1:
+                    # This is a sequential frame. Calculate delta from source.
+                    current_pose_pos = parser.hierarchy.loadPose(frame_idx).PositionWorld
+                    previous_pose_pos = parser.hierarchy.loadPose(frame_idx - 1).PositionWorld
+                    
+                    delta = np.array([
+                        current_pose_pos.x - previous_pose_pos.x,
+                       0, # Do not integrate Y
+                        current_pose_pos.z - previous_pose_pos.z
+                    ])
+                else:
+                    # This is a transition jump. IMPROVED: Calculate delta from the new clip's previous frame
+                    # instead of teleporting, to maintain motion continuity
+                    if frame_idx > 0:
+                        # Calculate delta from previous frame in the new clip
+                        current_pose_pos = parser.hierarchy.loadPose(frame_idx).PositionWorld
+                        previous_pose_pos = parser.hierarchy.loadPose(frame_idx - 1).PositionWorld
+                        
+                        delta = np.array([
+                            current_pose_pos.x - previous_pose_pos.x,
+                           0, # Do not integrate Y
+                            current_pose_pos.z - previous_pose_pos.z
+                        ])
+                    # If frame_idx == 0, delta remains [0,0,0] (can't calculate from previous frame)
+                
+                current_root_pos += delta
         
         # Get the Y position (height) from the root joint keyframe
         current_root_pos[1] = root_joint.Keyframes[frame_idx].Position.y
 
-        frame_data = normalized_motion_data[i].copy()
+        if frame_data_idx < len(normalized_motion_data):
+            frame_data = normalized_motion_data[frame_data_idx].copy()
+        else:
+            # Fallback: use current frame data
+            frame_data = np.zeros(len(normalized_motion_data[0]) if normalized_motion_data else 100)
         
         # Find the root position channels and insert the new world position
         frame_data[0:3] = current_root_pos
         world_space_motion.append(frame_data)
+        frame_data_idx += 1
     
     return world_space_motion
 

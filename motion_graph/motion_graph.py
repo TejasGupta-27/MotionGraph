@@ -1,6 +1,7 @@
 import random
 import numpy as np
 from sklearn.neighbors import KDTree
+from .transition_blender import create_transition_clip
 
 class MotionGraph:
     def __init__(self, parsers):
@@ -72,8 +73,21 @@ class MotionGraph:
                     
             self.graph[current_node] = valid_neighbors
 
-    def generate_motion(self, num_frames, sequential_bias=0.7):
+    def generate_motion(self, num_frames, sequential_bias=0.7, use_blended_transitions=True, transition_length=10):
+        """Generate motion with optional blended transitions.
+        
+        Args:
+            num_frames: Target number of frames to generate
+            sequential_bias: Probability of continuing sequentially (0-1)
+            use_blended_transitions: If True, create blended transition clips (paper approach)
+            transition_length: Number of frames in blended transitions (k)
+        
+        Returns:
+            List of (clip_idx, frame_idx) tuples, or list of frame data if using transitions
+        """
         motion_indices = []
+        transition_clips = []  # Store blended transition frames
+        transition_length = min(transition_length, 10)  # Limit for performance
         
         # FIX 3: Ensure we don't start on frame 0
         valid_start_nodes = [node for node in self.graph.keys() if node[1] > 0]
@@ -84,7 +98,9 @@ class MotionGraph:
         current_frame_idx = random.choice(valid_start_nodes)
         motion_indices.append(current_frame_idx)
         
-        for _ in range(num_frames - 1):
+        frames_generated = 1
+        
+        while frames_generated < num_frames:
             clip_idx, frame_idx = current_frame_idx
             
             # Check if next sequential frame exists in the same clip
@@ -96,6 +112,8 @@ class MotionGraph:
             if frame_idx < max_frame and random.random() < sequential_bias:
                 # Continue with next frame in sequence
                 current_frame_idx = next_sequential
+                motion_indices.append(current_frame_idx)
+                frames_generated += 1
             else:
                 # Make a transition using the motion graph
                 possible_transitions = self.graph.get(current_frame_idx, [])
@@ -103,12 +121,37 @@ class MotionGraph:
                 if not possible_transitions:
                     # No transitions from this frame, pick a new random valid frame
                     current_frame_idx = random.choice(valid_start_nodes)
+                    motion_indices.append(current_frame_idx)
+                    frames_generated += 1
                 else:
-                    # Make the jump
-                    current_frame_idx = random.choice(possible_transitions)
-            
-            motion_indices.append(current_frame_idx)
-            
+                    # Make the transition
+                    target_frame_idx = random.choice(possible_transitions)
+                    
+                    if use_blended_transitions and frames_generated + transition_length <= num_frames:
+                        # Create blended transition (paper approach)
+                        transition_frames = create_transition_clip(
+                            self, current_frame_idx, target_frame_idx, transition_length
+                        )
+                        transition_clips.append((len(motion_indices) - 1, transition_frames))
+                        
+                        # Add transition frames to motion
+                        # We'll mark these specially - use None to indicate transition frames
+                        for _ in range(transition_length - 1):
+                            motion_indices.append(None)  # Placeholder for transition frames
+                        
+                        current_frame_idx = target_frame_idx
+                        motion_indices.append(current_frame_idx)
+                        frames_generated += transition_length
+                    else:
+                        # Direct jump (fallback or if transitions disabled)
+                        current_frame_idx = target_frame_idx
+                        motion_indices.append(current_frame_idx)
+                        frames_generated += 1
+        
+        # Store transition clips for reconstruction
+        self._transition_clips = transition_clips
+        self._use_blended_transitions = use_blended_transitions
+        
         return motion_indices
 
     def calculate_smoothness(self, motion_indices, frame_time):
@@ -116,6 +159,12 @@ class MotionGraph:
         transition_count = 0
 
         for i in range(len(motion_indices) - 1):
+            # Skip None entries (transition placeholders)
+            if motion_indices[i] is None or motion_indices[i+1] is None:
+                continue
+            if not isinstance(motion_indices[i], tuple) or not isinstance(motion_indices[i+1], tuple):
+                continue
+                
             clip_idx1, frame_idx1 = motion_indices[i]
             clip_idx2, frame_idx2 = motion_indices[i+1]
 
