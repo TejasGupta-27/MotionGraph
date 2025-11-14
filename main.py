@@ -20,11 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def normalize_smoothness_scores(results):
-    """
-    Normalize smoothness scores to a 1-10 scale with 4 decimal places.
-    Lower raw scores (smoother motion) map to lower normalized scores (1 = best).
-    Higher raw scores (rougher motion) map to higher normalized scores (10 = worst).
-    """
+    
     successful_results = [r for r in results if r['status'] == 'SUCCESS' and r['smoothness_score'] is not None]
     
     if len(successful_results) == 0:
@@ -80,7 +76,7 @@ if __name__ == '__main__':
     logger.info("Motion graph created successfully")
     
     # Threshold values to test
-    threshold_values = [6,7,8]
+    threshold_values = [3,4,5,6,7,8,9,10]
     
     # Store results for logging
     results = []
@@ -119,8 +115,7 @@ if __name__ == '__main__':
             })
             continue
         
-        # Generate motion with high sequential bias to maintain natural walking
-        # Enable blended transitions (paper approach) for better quality
+        
         logger.info("Generating motion sequence...")
         motion_indices = motion_graph.generate_motion(
             num_frames=2500, 
@@ -142,8 +137,7 @@ if __name__ == '__main__':
             })
             continue
         
-        # Reconstruction uses position-only data, which is correct
-        # Filter out None entries (transition placeholders) for getting source data
+        
         valid_indices = [idx for idx in motion_indices if idx is not None and isinstance(idx, tuple)]
         normalized_motion_data = [motion_graph.motions_pos_only[i][j] for i, j in valid_indices] if valid_indices else []
         logger.info(f"Generated a new motion with {len(motion_indices)} frames (including transitions).")

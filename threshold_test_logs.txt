@@ -2,8 +2,8 @@
 THRESHOLD TESTING RESULTS
 ================================================================================
 
-Tested threshold values: [6, 7, 8]
-Total tests: 3
+Tested threshold values: [3, 4, 5, 6, 7, 8, 9, 10]
+Total tests: 8
 Sequential bias: 0.98
 Number of frames: 2500
 
@@ -13,40 +13,85 @@ NOTE: Smoothness scores are normalized to 1-10 scale
 
 ================================================================================
 
+Threshold: 3
+  Status: SUCCESS
+  Build time: 70.64 seconds
+  Transitions in graph: 5766
+  Transitions in motion: 48
+  Raw smoothness score: 2006.1373
+  Normalized smoothness (1-10): 2.2394
+  BVH file: generated_motion_threshold_3.bvh
+
+Threshold: 4
+  Status: SUCCESS
+  Build time: 80.51 seconds
+  Transitions in graph: 13226
+  Transitions in motion: 37
+  Raw smoothness score: 2940.6660
+  Normalized smoothness (1-10): 5.0387
+  BVH file: generated_motion_threshold_4.bvh
+
+Threshold: 5
+  Status: SUCCESS
+  Build time: 92.53 seconds
+  Transitions in graph: 25398
+  Transitions in motion: 45
+  Raw smoothness score: 4288.5786
+  Normalized smoothness (1-10): 9.0764
+  BVH file: generated_motion_threshold_5.bvh
+
 Threshold: 6
   Status: SUCCESS
-  Build time: 211.04 seconds
+  Build time: 131.55 seconds
   Transitions in graph: 41054
-  Transitions in motion: 18
-  Raw smoothness score: 1305.4735
-  Normalized smoothness (1-10): 1.0000
+  Transitions in motion: 27
+  Raw smoothness score: 4596.9004
+  Normalized smoothness (1-10): 10.0000
   BVH file: generated_motion_threshold_6.bvh
 
 Threshold: 7
   Status: SUCCESS
-  Build time: 204.71 seconds
+  Build time: 121.39 seconds
   Transitions in graph: 58844
-  Transitions in motion: 11
-  Raw smoothness score: 1703.6335
-  Normalized smoothness (1-10): 7.5885
+  Transitions in motion: 21
+  Raw smoothness score: 1720.3842
+  Normalized smoothness (1-10): 1.3834
   BVH file: generated_motion_threshold_7.bvh
 
 Threshold: 8
   Status: SUCCESS
-  Build time: 171.94 seconds
+  Build time: 124.23 seconds
   Transitions in graph: 78466
-  Transitions in motion: 21
-  Raw smoothness score: 1849.3644
-  Normalized smoothness (1-10): 10.0000
+  Transitions in motion: 19
+  Raw smoothness score: 1592.3995
+  Normalized smoothness (1-10): 1.0000
   BVH file: generated_motion_threshold_8.bvh
+
+Threshold: 9
+  Status: SUCCESS
+  Build time: 131.91 seconds
+  Transitions in graph: 99726
+  Transitions in motion: 19
+  Raw smoothness score: 1636.3729
+  Normalized smoothness (1-10): 1.1317
+  BVH file: generated_motion_threshold_9.bvh
+
+Threshold: 10
+  Status: SUCCESS
+  Build time: 145.85 seconds
+  Transitions in graph: 123222
+  Transitions in motion: 16
+  Raw smoothness score: 1756.4242
+  Normalized smoothness (1-10): 1.4913
+  BVH file: generated_motion_threshold_10.bvh
 
 ================================================================================
 BEST THRESHOLD (Lowest Smoothness Score)
 ================================================================================
-Threshold: 6
-Raw smoothness score: 1305.4735
+Threshold: 8
+Raw smoothness score: 1592.3995
 Normalized smoothness (1-10): 1.0000
-Transitions in graph: 41054
-Transitions in motion: 18
-BVH file: generated_motion_threshold_6.bvh
+Transitions in graph: 78466
+Transitions in motion: 19
+BVH file: generated_motion_threshold_8.bvh
 ================================================================================

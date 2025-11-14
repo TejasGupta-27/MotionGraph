@@ -2,7 +2,7 @@ import numpy as np
 import glm
 
 def euler_to_quaternion(euler):
-    """Convert Euler angles (in radians) to quaternion (x, y, z, w)."""
+   
     # Convert to radians if needed (assuming degrees)
     euler_rad = np.radians(euler)
     
@@ -25,7 +25,7 @@ def euler_to_quaternion(euler):
     return np.array([qx, qy, qz, qw])
 
 def quaternion_to_euler(q):
-    """Convert quaternion (x, y, z, w) to Euler angles (in degrees)."""
+   
     qx, qy, qz, qw = q[0], q[1], q[2], q[3]
     
     # Roll (X)
@@ -48,7 +48,7 @@ def quaternion_to_euler(q):
     return np.degrees(np.array([roll, pitch, yaw]))
 
 def quaternion_slerp(q1, q2, t):
-    """Spherical linear interpolation between two quaternions."""
+   
     # Normalize quaternions
     q1 = q1 / np.linalg.norm(q1)
     q2 = q2 / np.linalg.norm(q2)
@@ -79,9 +79,7 @@ def quaternion_slerp(q1, q2, t):
     return s0 * q1 + s1 * q2
 
 def blend_weight(p, k):
-    """Calculate C1 continuous blend weight as per paper.
-    α(p) = 2((p+1)/k)³ - 3((p+1)/k)² + 1, for -1 < p < k
-    """
+    
     if p <= -1:
         return 1.0
     if p >= k:
@@ -92,21 +90,7 @@ def blend_weight(p, k):
 
 def create_transition_frame(parser1, frame_idx1, parser2, frame_idx2, p, k, 
                            num_channels_per_joint, root_channels):
-    """Create a single blended transition frame.
-    
-    Args:
-        parser1: Source parser
-        frame_idx1: Source frame index
-        parser2: Target parser  
-        frame_idx2: Target frame index
-        p: Transition frame index (0 to k-1)
-        k: Total transition length
-        num_channels_per_joint: Number of channels per joint (typically 3 for rotations)
-        root_channels: Number of root channels (typically 6: Xpos, Ypos, Zpos, Xrot, Yrot, Zrot)
-    
-    Returns:
-        Blended frame data as numpy array
-    """
+   
     # Get blend weight
     alpha = blend_weight(p, k)
     
@@ -170,27 +154,12 @@ def create_transition_frame(parser1, frame_idx1, parser2, frame_idx2, p, k,
     return np.array(blended_frame, dtype=np.float32)
 
 def create_transition_clip(motion_graph, source_node, target_node, transition_length=10):
-    """Create a blended transition clip between two nodes.
     
-    Args:
-        motion_graph: MotionGraph instance
-        source_node: (clip_idx, frame_idx) of source
-        target_node: (clip_idx, frame_idx) of target
-        transition_length: Number of frames in transition (k)
-    
-    Returns:
-        List of blended frame data arrays
-    """
     clip_idx1, frame_idx1 = source_node
     clip_idx2, frame_idx2 = target_node
     
     parser1 = motion_graph.parsers[clip_idx1]
     parser2 = motion_graph.parsers[clip_idx2]
-    
-    # Calculate source and target frame ranges
-    # Paper: blend frames i to i+k-1 with frames j-k+1 to j
-    # We'll use: source frame_idx1, target frame_idx2
-    # For simplicity, we'll blend frame_idx1 with frame_idx2 over k frames
     
     transition_frames = []
     
@@ -199,9 +168,7 @@ def create_transition_clip(motion_graph, source_node, target_node, transition_le
     root_channels = 6  # Xpos, Ypos, Zpos, Xrot, Yrot, Zrot
     
     for p in range(transition_length):
-        # Calculate which frames to blend
-        # Source: frame_idx1 (or nearby if we want window)
-        # Target: frame_idx2 (or nearby if we want window)
+       
         src_frame = max(0, min(frame_idx1, parser1.bvh.FrameCount - 1))
         tgt_frame = max(0, min(frame_idx2, parser2.bvh.FrameCount - 1))
         

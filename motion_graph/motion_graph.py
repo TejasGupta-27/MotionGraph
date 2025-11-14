@@ -74,17 +74,7 @@ class MotionGraph:
             self.graph[current_node] = valid_neighbors
 
     def generate_motion(self, num_frames, sequential_bias=0.7, use_blended_transitions=True, transition_length=10):
-        """Generate motion with optional blended transitions.
         
-        Args:
-            num_frames: Target number of frames to generate
-            sequential_bias: Probability of continuing sequentially (0-1)
-            use_blended_transitions: If True, create blended transition clips (paper approach)
-            transition_length: Number of frames in blended transitions (k)
-        
-        Returns:
-            List of (clip_idx, frame_idx) tuples, or list of frame data if using transitions
-        """
         motion_indices = []
         transition_clips = []  # Store blended transition frames
         transition_length = min(transition_length, 10)  # Limit for performance
