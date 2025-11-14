@@ -1,11 +1,68 @@
 import time
+import logging
+from datetime import datetime
 from bvh_parser import BvhParser
 from motion_graph import MotionGraph
 from motion_graph.reconstruction import reconstruct_world_space_motion
 from motion_graph.bvh_writer import write_bvh_file
 from motion_graph.transition_counter import count_and_print_transitions
 
+# Configure logging to write to both file and console
+log_filename = f'motion_graph_run_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_filename, mode='w', encoding='utf-8'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+def normalize_smoothness_scores(results):
+    """
+    Normalize smoothness scores to a 1-10 scale with 4 decimal places.
+    Lower raw scores (smoother motion) map to lower normalized scores (1 = best).
+    Higher raw scores (rougher motion) map to higher normalized scores (10 = worst).
+    """
+    successful_results = [r for r in results if r['status'] == 'SUCCESS' and r['smoothness_score'] is not None]
+    
+    if len(successful_results) == 0:
+        return results
+    
+    if len(successful_results) == 1:
+        # Only one result, assign middle score
+        for r in results:
+            if r['status'] == 'SUCCESS' and r['smoothness_score'] is not None:
+                r['normalized_smoothness'] = 5.0000
+        return results
+    
+    # Get min and max smoothness scores
+    raw_scores = [r['smoothness_score'] for r in successful_results]
+    min_score = min(raw_scores)
+    max_score = max(raw_scores)
+    
+    # Normalize to 1-10 scale
+    for r in results:
+        if r['status'] == 'SUCCESS' and r['smoothness_score'] is not None:
+            if max_score == min_score:
+                # All scores are the same
+                normalized = 5.0000
+            else:
+                # Linear normalization: min_score -> 1.0, max_score -> 10.0
+                normalized = 1.0 + (r['smoothness_score'] - min_score) * 9.0 / (max_score - min_score)
+            r['normalized_smoothness'] = round(normalized, 4)
+        else:
+            r['normalized_smoothness'] = None
+    
+    return results
+
 if __name__ == '__main__':
+    logger.info(f"Starting motion graph processing - Log file: {log_filename}")
+    logger.info("=" * 80)
+    
+    # Load BVH files
+    logger.info("Loading BVH files...")
     parser1 = BvhParser('cmu-mocap/data/001/01_01.bvh')
     parser2 = BvhParser('cmu-mocap/data/001/01_02.bvh')
     parser3 = BvhParser('cmu-mocap/data/001/01_03.bvh')
@@ -16,36 +73,41 @@ if __name__ == '__main__':
     parser8 = BvhParser('cmu-mocap/data/001/01_08.bvh')
     parser9 = BvhParser('cmu-mocap/data/001/01_09.bvh')
     parser10 = BvhParser('cmu-mocap/data/001/01_10.bvh')
+    logger.info("Successfully loaded 10 BVH files")
 
+    logger.info("Creating motion graph...")
     motion_graph = MotionGraph([parser1, parser2, parser3, parser4, parser5, parser6, parser7, parser8, parser9, parser10])
+    logger.info("Motion graph created successfully")
     
     # Threshold values to test
-    threshold_values = [2, 2.5, 3]
+    threshold_values = [6,7,8]
     
     # Store results for logging
     results = []
     
-    print("=" * 80)
-    print("Testing multiple threshold values for optimal smoothness")
-    print("=" * 80)
+    logger.info("=" * 80)
+    logger.info("Testing multiple threshold values for optimal smoothness")
+    logger.info("=" * 80)
     
     for threshold in threshold_values:
-        print(f"\n{'='*80}")
-        print(f"Testing threshold: {threshold}")
-        print(f"{'='*80}")
+        logger.info("")
+        logger.info("="*80)
+        logger.info(f"Testing threshold: {threshold}")
+        logger.info("="*80)
         
         # Build graph with current threshold
         build_start = time.time()
+        logger.info("Building graph...")
         motion_graph.build_graph(threshold=threshold)
         build_end = time.time()
         build_time = build_end - build_start
         
         num_transitions_in_graph = sum(len(v) for v in motion_graph.graph.values())
-        print(f"Graph built in {build_time:.2f} seconds")
-        print(f"Found {num_transitions_in_graph} transitions in graph.")
+        logger.info(f"Graph built in {build_time:.2f} seconds")
+        logger.info(f"Found {num_transitions_in_graph} transitions in graph.")
         
         if num_transitions_in_graph == 0:
-            print(f"WARNING: No transitions found for threshold {threshold}. Skipping...")
+            logger.warning(f"No transitions found for threshold {threshold}. Skipping...")
             results.append({
                 'threshold': threshold,
                 'build_time': build_time,
@@ -59,6 +121,7 @@ if __name__ == '__main__':
         
         # Generate motion with high sequential bias to maintain natural walking
         # Enable blended transitions (paper approach) for better quality
+        logger.info("Generating motion sequence...")
         motion_indices = motion_graph.generate_motion(
             num_frames=2500, 
             sequential_bias=0.98,
@@ -67,7 +130,7 @@ if __name__ == '__main__':
         )
         
         if not motion_indices:
-            print(f"WARNING: Failed to generate motion for threshold {threshold}. Skipping...")
+            logger.warning(f"Failed to generate motion for threshold {threshold}. Skipping...")
             results.append({
                 'threshold': threshold,
                 'build_time': build_time,
@@ -83,9 +146,10 @@ if __name__ == '__main__':
         # Filter out None entries (transition placeholders) for getting source data
         valid_indices = [idx for idx in motion_indices if idx is not None and isinstance(idx, tuple)]
         normalized_motion_data = [motion_graph.motions_pos_only[i][j] for i, j in valid_indices] if valid_indices else []
-        print(f"Generated a new motion with {len(motion_indices)} frames (including transitions).")
+        logger.info(f"Generated a new motion with {len(motion_indices)} frames (including transitions).")
         
         # Count transitions in generated motion
+        logger.info("Counting transitions in generated motion...")
         transition_count = 0
         for i in range(len(motion_indices) - 1):
             if motion_indices[i] is None or motion_indices[i+1] is None:
@@ -97,13 +161,15 @@ if __name__ == '__main__':
             if clip_idx1 != clip_idx2 or frame_idx2 != frame_idx1 + 1:
                 transition_count += 1
         
-        print(f"Total transitions in generated motion: {transition_count}")
+        logger.info(f"Total transitions in generated motion: {transition_count}")
         
         # Calculate smoothness
+        logger.info("Calculating smoothness score...")
         smoothness_score = motion_graph.calculate_smoothness(motion_indices, parser1.bvh.FrameTime)
-        print(f"Smoothness score (avg velocity change): {smoothness_score:.4f}")
+        logger.info(f"Raw smoothness score (avg velocity change): {smoothness_score:.4f}")
         
         # --- Correct World-Space Motion Reconstruction ---
+        logger.info("Reconstructing world-space motion...")
         world_space_motion = reconstruct_world_space_motion(motion_graph, motion_indices, normalized_motion_data)
         
         # --- BVH Writing Logic ---
@@ -111,7 +177,9 @@ if __name__ == '__main__':
         # Replace decimal point with underscore for filename compatibility
         threshold_str = str(threshold).replace('.', '_')
         bvh_filename = f'generated_motion_threshold_{threshold_str}.bvh'
+        logger.info(f"Writing BVH file: {bvh_filename}")
         write_bvh_file(template_bvh, world_space_motion, bvh_filename)
+        logger.info(f"BVH file written successfully: {bvh_filename}")
         
         # Store results
         results.append({
@@ -124,10 +192,23 @@ if __name__ == '__main__':
             'status': 'SUCCESS'
         })
     
+    # Normalize smoothness scores to 1-10 scale
+    logger.info("")
+    logger.info("="*80)
+    logger.info("Normalizing smoothness scores to 1-10 scale...")
+    logger.info("="*80)
+    results = normalize_smoothness_scores(results)
+    
+    # Log normalized scores
+    for result in results:
+        if result['status'] == 'SUCCESS' and result.get('normalized_smoothness') is not None:
+            logger.info(f"Threshold {result['threshold']}: Raw={result['smoothness_score']:.4f}, Normalized={result['normalized_smoothness']:.4f}")
+    
     # Write results to logs file
-    print(f"\n{'='*80}")
-    print("Writing results to logs file...")
-    print(f"{'='*80}")
+    logger.info("")
+    logger.info("="*80)
+    logger.info("Writing results to logs file...")
+    logger.info("="*80)
     
     with open('threshold_test_logs.txt', 'w') as f:
         f.write("=" * 80 + "\n")
@@ -137,6 +218,9 @@ if __name__ == '__main__':
         f.write(f"Total tests: {len(threshold_values)}\n")
         f.write(f"Sequential bias: 0.98\n")
         f.write(f"Number of frames: 2500\n\n")
+        f.write("NOTE: Smoothness scores are normalized to 1-10 scale\n")
+        f.write("      1.0000 = Best (smoothest motion)\n")
+        f.write("     10.0000 = Worst (roughest motion)\n\n")
         f.write("=" * 80 + "\n\n")
         
         # Write detailed results
@@ -147,7 +231,8 @@ if __name__ == '__main__':
             f.write(f"  Transitions in graph: {result['num_transitions_in_graph']}\n")
             if result['status'] == 'SUCCESS':
                 f.write(f"  Transitions in motion: {result['num_transitions_in_motion']}\n")
-                f.write(f"  Smoothness score: {result['smoothness_score']:.4f}\n")
+                f.write(f"  Raw smoothness score: {result['smoothness_score']:.4f}\n")
+                f.write(f"  Normalized smoothness (1-10): {result['normalized_smoothness']:.4f}\n")
                 f.write(f"  BVH file: {result['bvh_file']}\n")
             f.write("\n")
         
@@ -159,26 +244,38 @@ if __name__ == '__main__':
             f.write("BEST THRESHOLD (Lowest Smoothness Score)\n")
             f.write("=" * 80 + "\n")
             f.write(f"Threshold: {best_result['threshold']}\n")
-            f.write(f"Smoothness score: {best_result['smoothness_score']:.4f}\n")
+            f.write(f"Raw smoothness score: {best_result['smoothness_score']:.4f}\n")
+            f.write(f"Normalized smoothness (1-10): {best_result['normalized_smoothness']:.4f}\n")
             f.write(f"Transitions in graph: {best_result['num_transitions_in_graph']}\n")
             f.write(f"Transitions in motion: {best_result['num_transitions_in_motion']}\n")
             f.write(f"BVH file: {best_result['bvh_file']}\n")
             f.write("=" * 80 + "\n")
     
-    print("Results saved to threshold_test_logs.txt")
+    logger.info("Results saved to threshold_test_logs.txt")
     
     # Print summary
-    print(f"\n{'='*80}")
-    print("SUMMARY")
-    print(f"{'='*80}")
+    logger.info("")
+    logger.info("="*80)
+    logger.info("SUMMARY")
+    logger.info("="*80)
     successful_results = [r for r in results if r['status'] == 'SUCCESS' and r['smoothness_score'] is not None]
     if successful_results:
         best_result = min(successful_results, key=lambda x: x['smoothness_score'])
-        print(f"Best threshold: {best_result['threshold']} (Smoothness: {best_result['smoothness_score']:.4f})")
-        print(f"BVH file: {best_result['bvh_file']}")
+        logger.info(f"Best threshold: {best_result['threshold']}")
+        logger.info(f"  Raw smoothness: {best_result['smoothness_score']:.4f}")
+        logger.info(f"  Normalized smoothness (1-10): {best_result['normalized_smoothness']:.4f}")
+        logger.info(f"  BVH file: {best_result['bvh_file']}")
+        logger.info("")
+        logger.info("All threshold results:")
+        for r in sorted(successful_results, key=lambda x: x['threshold']):
+            logger.info(f"  Threshold {r['threshold']}: Normalized={r['normalized_smoothness']:.4f} (Raw={r['smoothness_score']:.4f})")
     else:
-        print("No successful results to compare.")
+        logger.info("No successful results to compare.")
     
-    print(f"\nAll results saved to: threshold_test_logs.txt")
-    print(f"Generated BVH files: {len([r for r in results if r['bvh_file'] is not None])} files")
+    logger.info("")
+    logger.info(f"All results saved to: threshold_test_logs.txt")
+    logger.info(f"Generated BVH files: {len([r for r in results if r['bvh_file'] is not None])} files")
+    logger.info("="*80)
+    logger.info(f"Complete log saved to: {log_filename}")
+    logger.info("="*80)
 

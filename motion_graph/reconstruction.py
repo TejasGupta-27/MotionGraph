@@ -1,4 +1,7 @@
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 def reconstruct_world_space_motion(motion_graph, motion_indices, normalized_motion_data):
     """Reconstruct world-space motion with support for blended transitions."""
@@ -7,10 +10,17 @@ def reconstruct_world_space_motion(motion_graph, motion_indices, normalized_moti
     
     # Get the starting position from the first frame of the generated sequence
     start_clip_idx, start_frame_idx = motion_indices[0]
-    motion_graph.parsers[start_clip_idx].hierarchy.loadPose(start_frame_idx)
     
     # Initialize current root position at ground level (Y=0) or use the first frame's Y
     root_joint = motion_graph.parsers[start_clip_idx].bvh.Root
+    
+    # Bounds checking for start frame
+    max_start_frame = len(root_joint.Keyframes) - 1
+    if start_frame_idx > max_start_frame:
+        logger.warning(f"Start frame index {start_frame_idx} out of bounds (max: {max_start_frame}). Clamping to {max_start_frame}.")
+        start_frame_idx = max_start_frame
+    
+    motion_graph.parsers[start_clip_idx].hierarchy.loadPose(start_frame_idx)
     current_root_pos = np.array([0.0, root_joint.Keyframes[start_frame_idx].Position.y, 0.0])
 
     # Check if we're using blended transitions
@@ -51,6 +61,13 @@ def reconstruct_world_space_motion(motion_graph, motion_indices, normalized_moti
         
         parser = motion_graph.parsers[clip_idx]
         root_joint = parser.bvh.Root
+        
+        # Bounds checking: ensure frame_idx is within valid range
+        max_frame_idx = len(root_joint.Keyframes) - 1
+        if frame_idx > max_frame_idx:
+            # Clamp to the last valid frame
+            logger.warning(f"Frame index {frame_idx} for clip {clip_idx} out of bounds (max: {max_frame_idx}). Clamping to {max_frame_idx}.")
+            frame_idx = max_frame_idx
 
         if i > 0:
             # Calculate HORIZONTAL delta from the source clip
@@ -69,8 +86,10 @@ def reconstruct_world_space_motion(motion_graph, motion_indices, normalized_moti
                 # This eliminates "teleporting" and creates smoother motion
                 if clip_idx == prev_clip_idx and frame_idx == prev_frame_idx + 1:
                     # This is a sequential frame. Calculate delta from source.
+                    # Ensure frame indices are valid
+                    prev_frame_to_load = min(frame_idx - 1, max_frame_idx)
                     current_pose_pos = parser.hierarchy.loadPose(frame_idx).PositionWorld
-                    previous_pose_pos = parser.hierarchy.loadPose(frame_idx - 1).PositionWorld
+                    previous_pose_pos = parser.hierarchy.loadPose(prev_frame_to_load).PositionWorld
                     
                     delta = np.array([
                         current_pose_pos.x - previous_pose_pos.x,
@@ -82,8 +101,9 @@ def reconstruct_world_space_motion(motion_graph, motion_indices, normalized_moti
                     # instead of teleporting, to maintain motion continuity
                     if frame_idx > 0:
                         # Calculate delta from previous frame in the new clip
+                        prev_frame_to_load = min(frame_idx - 1, max_frame_idx)
                         current_pose_pos = parser.hierarchy.loadPose(frame_idx).PositionWorld
-                        previous_pose_pos = parser.hierarchy.loadPose(frame_idx - 1).PositionWorld
+                        previous_pose_pos = parser.hierarchy.loadPose(prev_frame_to_load).PositionWorld
                         
                         delta = np.array([
                             current_pose_pos.x - previous_pose_pos.x,

@@ -1,0 +1,58 @@
+2025-11-14 14:26:52,327 - INFO - Starting motion graph processing - Log file: motion_graph_run_20251114_142652.log
+2025-11-14 14:26:52,327 - INFO - ================================================================================
+2025-11-14 14:26:52,327 - INFO - Loading BVH files...
+2025-11-14 14:28:10,467 - INFO - Successfully loaded 10 BVH files
+2025-11-14 14:28:10,467 - INFO - Creating motion graph...
+2025-11-14 14:28:55,996 - INFO - Motion graph created successfully
+2025-11-14 14:28:55,996 - INFO - ================================================================================
+2025-11-14 14:28:56,001 - INFO - Testing multiple threshold values for optimal smoothness
+2025-11-14 14:28:56,001 - INFO - ================================================================================
+2025-11-14 14:28:56,003 - INFO - 
+2025-11-14 14:28:56,003 - INFO - ================================================================================
+2025-11-14 14:28:56,003 - INFO - Testing threshold: 4
+2025-11-14 14:28:56,003 - INFO - ================================================================================
+2025-11-14 14:28:56,004 - INFO - Building graph...
+2025-11-14 14:31:24,653 - INFO - Graph built in 148.64 seconds
+2025-11-14 14:31:24,657 - INFO - Found 13226 transitions in graph.
+2025-11-14 14:31:24,658 - INFO - Generating motion sequence...
+2025-11-14 14:31:25,159 - INFO - Generated a new motion with 2500 frames (including transitions).
+2025-11-14 14:31:25,162 - INFO - Counting transitions in generated motion...
+2025-11-14 14:31:25,167 - INFO - Total transitions in generated motion: 38
+2025-11-14 14:31:25,171 - INFO - Calculating smoothness score...
+2025-11-14 14:31:25,175 - INFO - Smoothness score (avg velocity change): 1606.3640
+2025-11-14 14:31:25,175 - INFO - Reconstructing world-space motion...
+2025-11-14 14:31:28,479 - INFO - Writing BVH file: generated_motion_threshold_4.bvh
+2025-11-14 14:31:34,543 - INFO - BVH file written successfully: generated_motion_threshold_4.bvh
+2025-11-14 14:31:34,543 - INFO - 
+2025-11-14 14:31:34,543 - INFO - ================================================================================
+2025-11-14 14:31:34,543 - INFO - Testing threshold: 5
+2025-11-14 14:31:34,543 - INFO - ================================================================================
+2025-11-14 14:31:34,547 - INFO - Building graph...
+2025-11-14 14:34:39,925 - INFO - Graph built in 185.38 seconds
+2025-11-14 14:34:39,925 - INFO - Found 25398 transitions in graph.
+2025-11-14 14:34:39,930 - INFO - Generating motion sequence...
+2025-11-14 14:34:40,147 - INFO - Generated a new motion with 2500 frames (including transitions).
+2025-11-14 14:34:40,147 - INFO - Counting transitions in generated motion...
+2025-11-14 14:34:40,152 - INFO - Total transitions in generated motion: 42
+2025-11-14 14:34:40,152 - INFO - Calculating smoothness score...
+2025-11-14 14:34:40,152 - INFO - Smoothness score (avg velocity change): 1676.2208
+2025-11-14 14:34:40,152 - INFO - Reconstructing world-space motion...
+2025-11-14 14:34:41,151 - INFO - Writing BVH file: generated_motion_threshold_5.bvh
+2025-11-14 14:34:42,518 - INFO - BVH file written successfully: generated_motion_threshold_5.bvh
+2025-11-14 14:34:42,520 - INFO - 
+2025-11-14 14:34:42,520 - INFO - ================================================================================
+2025-11-14 14:34:42,520 - INFO - Writing results to logs file...
+2025-11-14 14:34:42,520 - INFO - ================================================================================
+2025-11-14 14:34:42,520 - INFO - Results saved to threshold_test_logs.txt
+2025-11-14 14:34:42,520 - INFO - 
+2025-11-14 14:34:42,520 - INFO - ================================================================================
+2025-11-14 14:34:42,520 - INFO - SUMMARY
+2025-11-14 14:34:42,520 - INFO - ================================================================================
+2025-11-14 14:34:42,520 - INFO - Best threshold: 4 (Smoothness: 1606.3640)
+2025-11-14 14:34:42,520 - INFO - BVH file: generated_motion_threshold_4.bvh
+2025-11-14 14:34:42,520 - INFO - 
+All results saved to: threshold_test_logs.txt
+2025-11-14 14:34:42,520 - INFO - Generated BVH files: 2 files
+2025-11-14 14:34:42,520 - INFO - ================================================================================
+2025-11-14 14:34:42,520 - INFO - Complete log saved to: motion_graph_run_20251114_142652.log
+2025-11-14 14:34:42,524 - INFO - ================================================================================
